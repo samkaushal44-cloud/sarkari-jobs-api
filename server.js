@@ -1,83 +1,56 @@
-import express from "express";
-import cors from "cors";
-import axios from "axios";
-import * as cheerio from "cheerio";
+const express = require("express");
+const cors = require("cors");
+const axios = require("axios");
+const cheerio = require("cheerio");
 
 const app = express();
 app.use(cors());
 
-// 🔎 Scrape helper
-async function scrape(url){
-  const { data } = await axios.get(url, { timeout: 20000 });
-  const $ = cheerio.load(data);
-  const items = [];
+const PORT = process.env.PORT || 10000;
 
-  // सभी links पढ़ो
-  $("a[href]").each((_, el) => {
-    const title = $(el).text().trim();
-    const link = $(el).attr("href");
+// Home route
+app.get("/", (req, res) => {
+  res.send("Sarkari Jobs API Running");
+});
 
-    // ❌ unwanted / source / category हटाओ
-    if (
-      title &&
-      link &&
-      title.length > 15 &&
-      !title.toLowerCase().includes("freejobalert") &&
-      !title.toLowerCase().includes("all india") &&
-      !title.toLowerCase().includes("state govt") &&
-      !title.toLowerCase().includes("jobs") &&
-      !title.toLowerCase().includes("previous papers") &&
-      !title.toLowerCase().includes("exam pattern") &&
-      !title.toLowerCase().includes("selection process")
-    ) {
-      items.push({
-        title,
-        date: "",
-        link: link.startsWith("http")
-          ? link
-          : `https://www.freejobalert.com${link}`
-      });
-    }
-  });
-
-  // 🧹 Duplicate हटाओ
-  const unique = Array.from(new Map(items.map(i => [i.title, i])).values());
-
-  return unique.slice(0, 30);
-}
-
-// Health check
-app.get("/", (req, res) => res.send("Sarkari Jobs API Running"));
-
-// Latest Jobs
-app.get("/api/latest", async (req, res) => {
+// 🔥 JOBS API ROUTE (THIS WAS MISSING)
+app.get("/jobs", async (req, res) => {
   try {
-    const data = await scrape("https://www.freejobalert.com/");
-    res.json(data);
+    const url = "https://www.freejobalert.com/";
+    const { data } = await axios.get(url);
+    const $ = cheerio.load(data);
+
+    const items = [];
+
+    $("a[href*='freejobalert.com']").each((i, el) => {
+      const title = $(el).text().trim();
+      const link = $(el).attr("href");
+
+      if (title && link && title.length > 10) {
+        items.push({
+          title: title,
+          link: link.startsWith("http")
+            ? link
+            : `https://www.freejobalert.com${link}`,
+          date: "",
+          category: "Sarkari Job",
+        });
+      }
+    });
+
+    // Remove duplicate titles
+    const unique = Array.from(
+      new Map(items.map((i) => [i.title, i])).values()
+    );
+
+    res.json(unique.slice(0, 30));
   } catch (err) {
-    res.status(500).json({ error: "Latest jobs fetch failed" });
+    console.error("Scraping Error:", err.message);
+    res.status(500).json({ error: "Failed to fetch jobs" });
   }
 });
 
-// Admit Cards
-app.get("/api/admit", async (req, res) => {
-  try {
-    const data = await scrape("https://www.freejobalert.com/admit-card/");
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: "Admit cards fetch failed" });
-  }
+// Start server
+app.listen(PORT, () => {
+  console.log("Server running on port", PORT);
 });
-
-// Results
-app.get("/api/result", async (req, res) => {
-  try {
-    const data = await scrape("https://www.freejobalert.com/results/");
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: "Results fetch failed" });
-  }
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("API running on", PORT));

@@ -6,58 +6,78 @@ import * as cheerio from "cheerio";
 const app = express();
 app.use(cors());
 
+// 🔎 Scrape helper
 async function scrape(url){
   const { data } = await axios.get(url, { timeout: 20000 });
   const $ = cheerio.load(data);
   const items = [];
 
-  // 🔥 NEW SELECTOR (FreeJobAlert structure)
-  $("a[href*='freejobalert.com']").each((_, el) => {
+  // सभी links पढ़ो
+  $("a[href]").each((_, el) => {
     const title = $(el).text().trim();
     const link = $(el).attr("href");
 
-    if(title && link && title.length > 10){
+    // ❌ unwanted / source / category हटाओ
+    if (
+      title &&
+      link &&
+      title.length > 15 &&
+      !title.toLowerCase().includes("freejobalert") &&
+      !title.toLowerCase().includes("all india") &&
+      !title.toLowerCase().includes("state govt") &&
+      !title.toLowerCase().includes("jobs") &&
+      !title.toLowerCase().includes("previous papers") &&
+      !title.toLowerCase().includes("exam pattern") &&
+      !title.toLowerCase().includes("selection process")
+    ) {
       items.push({
         title,
         date: "",
-        link: link.startsWith("http") ? link : `https://www.freejobalert.com${link}`
+        link: link.startsWith("http")
+          ? link
+          : `https://www.freejobalert.com${link}`
       });
     }
   });
 
-  // Duplicate हटाने के लिए
+  // 🧹 Duplicate हटाओ
   const unique = Array.from(new Map(items.map(i => [i.title, i])).values());
+
   return unique.slice(0, 30);
 }
 
-app.get("/", (req,res)=> res.send("API Running"));
+// Health check
+app.get("/", (req, res) => res.send("Sarkari Jobs API Running"));
 
-app.get("/api/latest", async (req,res)=>{
-  try{
+// Latest Jobs
+app.get("/api/latest", async (req, res) => {
+  try {
     const data = await scrape("https://www.freejobalert.com/");
     res.json(data);
-  }catch(err){
-    res.status(500).json({error:"Latest fetch failed"});
+  } catch (err) {
+    res.status(500).json({ error: "Latest jobs fetch failed" });
   }
 });
 
-app.get("/api/admit", async (req,res)=>{
-  try{
+// Admit Cards
+app.get("/api/admit", async (req, res) => {
+  try {
     const data = await scrape("https://www.freejobalert.com/admit-card/");
     res.json(data);
-  }catch(err){
-    res.status(500).json({error:"Admit fetch failed"});
+  } catch (err) {
+    res.status(500).json({ error: "Admit cards fetch failed" });
   }
 });
 
-app.get("/api/result", async (req,res)=>{
-  try{
+// Results
+app.get("/api/result", async (req, res) => {
+  try {
     const data = await scrape("https://www.freejobalert.com/results/");
     res.json(data);
-  }catch(err){
-    res.status(500).json({error:"Result fetch failed"});
+  } catch (err) {
+    res.status(500).json({ error: "Results fetch failed" });
   }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, ()=> console.log("Running on", PORT));
+app.listen(PORT, () => console.log("API running on", PORT));

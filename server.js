@@ -1,8 +1,8 @@
-import express from "express";
-import axios from "axios";
-import cheerio from "cheerio";
-import cors from "cors";
-import cron from "node-cron";
+const express = require("express");
+const axios = require("axios");
+const cheerio = require("cheerio");
+const cors = require("cors");
+const cron = require("node-cron");
 
 const app = express();
 app.use(cors());
@@ -33,7 +33,7 @@ async function scrapeJobs() {
       }
     });
 
-    // duplicates हटाओ
+    // Remove duplicates
     const unique = [];
     const seen = new Set();
     for (const j of results) {
@@ -43,20 +43,20 @@ async function scrapeJobs() {
       }
     }
 
-    JOBS = unique.slice(0, 100); // latest 100
+    JOBS = unique.slice(0, 100); // latest 100 jobs
     console.log("✅ Jobs updated:", JOBS.length);
   } catch (err) {
     console.error("❌ Scrape error:", err.message);
   }
 }
 
-// पहली बार चलाओ
+// First run
 scrapeJobs();
 
-// हर 6 घंटे में auto update
+// Run every 6 hours
 cron.schedule("0 */6 * * *", scrapeJobs);
 
-// APIs
+// Routes
 app.get("/", (req, res) => {
   res.send("Sarkari Jobs API is running");
 });

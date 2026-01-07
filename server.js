@@ -11,21 +11,23 @@ async function scrape(url){
   const $ = cheerio.load(data);
   const items = [];
 
-  $("table#myTable tr").each((_, el) => {
-    const title = $(el).find("td:nth-child(1) a").text().trim();
-    const date  = $(el).find("td:nth-child(2)").text().trim();
-    const link  = $(el).find("td:nth-child(1) a").attr("href");
+  // 🔥 NEW SELECTOR (FreeJobAlert structure)
+  $("a[href*='freejobalert.com']").each((_, el) => {
+    const title = $(el).text().trim();
+    const link = $(el).attr("href");
 
-    if(title && link){
+    if(title && link && title.length > 10){
       items.push({
         title,
-        date,
+        date: "",
         link: link.startsWith("http") ? link : `https://www.freejobalert.com${link}`
       });
     }
   });
 
-  return items.slice(0,50);
+  // Duplicate हटाने के लिए
+  const unique = Array.from(new Map(items.map(i => [i.title, i])).values());
+  return unique.slice(0, 30);
 }
 
 app.get("/", (req,res)=> res.send("API Running"));
